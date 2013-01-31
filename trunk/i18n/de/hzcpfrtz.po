@@ -1,0 +1,35 @@
+#, fuzzy
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Fritz!Box call monitor"
+msgstr "Fritz!Box Anrufmonitor"
+
+msgid "Network address:"
+msgstr "Netzwerk-Adresse:"
+
+msgid ""
+"Note: You have to enable the call monitor on your Fritz!Box by calling\n"
+"#96*5* on a connected phone once. To disable it again, dial #96*4*."
+msgstr ""
+"Hinweis: Sie müssen den Anrufmonitor Ihrer Fritz!Box einschalten, indem Sie\n"
+"#96*5* an einem verbundenen Telefon wählen. Zum Abschalten wählen Sie #96*4*."
+
+msgid "Running/Connected:"
+msgstr "Aktiv/Verbunden:"
+
+msgid "Start Monitor"
+msgstr "Monitor starten"
+
+msgid "Stop Monitor"
+msgstr "Monitor stoppen"
+
+msgid ""
+"The IP address or name of the Fritz!Box Phone in your network.\n"
+"Factory default is '192.168.178.1' and 'fritz.box', respectively."
+msgstr ""
+"Die IP-Adresse oder der Name Ihrer Fritz!Box im Netzwerk.\n"
+"Werkseinstellung ist '192.168.178.1' bzw. 'fritz.box'"

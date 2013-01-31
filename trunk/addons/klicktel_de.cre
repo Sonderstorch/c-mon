@@ -1,0 +1,5 @@
+REGEXRESOLVER
+1
+klickTel (DE)
+http://www.klicktel.de/inverssuche/index/search?method=searchSimple&_dvform_posted=1&phoneNumber={Nr}
+(?:<a class="namelink" href=".*"><strong>){1,1}?(?:<span class="fn">)?([^<]*)(?:</span>)?(?:</strong></a>){1,1}?

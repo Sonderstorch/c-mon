@@ -1,0 +1,86 @@
+
+TOOLS NEEDED
+============
+
+For compiling c'mon, you need the following tools:
+
+ - Python 2.x  
+   Python is needed for running SCons, the build-tool used.
+   You can download it from http://www.python.org/download/
+   
+ - Perl
+   Perl is (unfortunately) needed to build OpenSSL. OpenSSL
+   is not strictly necessary, but the PostgreSQL client library
+   used in the c'mon currently is configured to use it. Additionally,
+   code-signing the installer is done with it.  
+   You can download it from http://www.activestate.com/activeperl
+
+ - mingw-w64
+   MinGW-w64 is a distribution of the GCC compiler suite suitable 
+   for producing 32 and 64 bit binaries for Windows.
+   You can download it from http://mingw-w64.sourceforge.net/
+   
+   For the distribution, the personal build by 'rubenvb' has been used
+   (i686-w64-mingw32-gcc-4.7.1-2-release-win32_rubenvb.7z).
+
+ - boost
+   A copy of the boost libraries is needed. You'll most certainly have
+   to compile them yourself with mingw-w64.
+   You can download them from http://www.boost.org/
+   
+   For the distribution, boost 1_51_0 was used.
+
+
+PREPARATIONAL STEPS
+===================
+
+1) Compile boost
+
+   Boost was built by executing the following commands in the 
+   boost root folder:
+  
+   bootstrap msvc
+
+    - OR - 
+
+   bootstrap gcc     (note: edit bootstrap.bat and replace the line "set toolset=msvc" !!)
+
+   - THEN -
+
+  .\b2 --prefix=C:\Boost_1_51_0\distrib --build-dir=.\obj 
+       -–without-mpi -–without-python -–build-type=minimal
+
+2) Compile OpenSSL
+
+   OpenSSL has to be build by it's own Perl-based build-system.
+   Open a command shell, cd into the directory "third_party\openssl-0.9.8x"
+   and call "ms\mingw32.bat" to build it.
+   
+   Make sure, Perl and the mingw32\bin folder are in your PATH.
+
+3) ICU Tools / libphonenumber tools ?
+
+4) Compile wxWidgets
+   
+   With minGW64:
+	cd c:\wx\build\msw
+	mingw32-make -f makefile.gcc BUILD=debug UNICODE=1 SHARED=1
+	mingw32-make -f makefile.gcc BUILD=release UNICODE=1 SHARED=1
+
+   Visual C++:
+        nmake -f makefile.vc BUILD=debug UNICODE=1 SHARED=1
+        nmake -f makefile.vc BUILD=release UNICODE=1 SHARED=1
+
+
+COMPILING C'MON
+===============
+
+1) Look in the "SConstruct" file and see if you have to adjust the 
+   path to the boost libraries. Alternatively, set the environment
+   variable BOOST to the boost libraries root path. 
+
+2) Just call "build_mingw_release.cmd" to build c'mon and all the libraries
+   and plugins required. The final binaries appear in the "bin/release" folder.
+
+-----
+$Revision: 34 $ $Date: 2012-10-03 21:37:05 +0200 (Wed, 03 Oct 2012) $

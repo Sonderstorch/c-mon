@@ -1,0 +1,13 @@
+libphonenumber (5.2) lucid; urgency=low
+
+  * Metadata changes:
+    - Updated metadata for region code(s): DE, GR, HR, OM, SB, ZA
+    - Updated geocoding data for country calling code(s): 30 (el, en)
+
+ -- David Beaumont <dbeaumont@google.com>  Wed, 10 Oct 2012 17:42:28 +0200
+
+libphonenumber (3.8) unstable; urgency=low
+
+  * Initial Debian Package.
+
+ -- Fredrik Roubert <roubert@google.com>  Tue, 16 Aug 2011 16:11:46 +0200

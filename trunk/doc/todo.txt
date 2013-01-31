@@ -1,0 +1,22 @@
+TODO AND ENHANCEMENTS
+---------------------
+
+- Check screenpos on startup/restore (multi-monitor setup)
+- Make displayed columns @ journal and phonebook configurable
+  and store column-sequence and -widths
+- Contact preview area @ phonebook / journal
+- Memos for a call
+- Add contact from journal entry
+- Caching of resolved numbers (e.g. in local phonebook)
+- Display notification only during 'pending' phase / make configurable
+- Notification sound / Growl-Support?
+- More phonebook plugins (MAPI/Thunderbird/Exchange Web Access)
+- More Resolvers (GoYellow, etc.)
+
+DONE
+----
+- Local phonebook (i.e. SQLite based)
+- Multiple phone books per plugin (e.g. for Outlook: 'Contacts' and/or GAL)
+
+----
+$Revision: 42 $ $Date: 2012-10-23 23:15:58 +0200 (Tue, 23 Oct 2012) $

@@ -1,0 +1,83 @@
+#, fuzzy
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "&Database:"
+msgstr "&Datenbank:"
+
+msgid "&Port:"
+msgstr "&Port:"
+
+msgid "&Root Database:"
+msgstr "Admin-&Datenbank:"
+
+msgid "&Server:"
+msgstr "&Server:"
+
+msgid "&User:"
+msgstr "&Benutzername:"
+
+msgid "Addressbook for PostgreSQL"
+msgstr "Telefonbuch für PostgreSQL"
+
+msgid "Create Database..."
+msgstr "Datenbank erstellen..."
+
+msgid "Database Credentials"
+msgstr "Datenbank-Authentifikation"
+
+msgid "Database Schema"
+msgstr "Datenbankschema"
+
+msgid "Display Schema..."
+msgstr "Datenbankschema anzeigen..."
+
+#, c-format
+msgid ""
+"Failed to connect to database:\n"
+"%s"
+msgstr ""
+"Datenbank-Verbindungsfehler:\n"
+"%s"
+
+#, c-format
+msgid ""
+"Failed to create database:\n"
+"%s"
+msgstr ""
+"Fehler beim Erstellen der Datenbank:\n"
+"%s"
+
+msgid ""
+"If enabled, your PostgreSQL server needs to be\n"
+"configured for single-sign-on (SSPI or GSSAPI)"
+msgstr ""
+"Wenn aktiviert, muss Ihr PostgreSQL-Server für\n"
+"Single-Sign-On konfiguriert sein (SSPI or GSSAPI)"
+
+msgid "NOTE: The password will be stored in clear-text"
+msgstr "HINWEIS: Das Kennwort wird im Klartext gespeichert"
+
+msgid "Pass&word:"
+msgstr "Kenn&wort:"
+
+msgid "Root &Password:"
+msgstr "Admin-&Kennwort:"
+
+msgid "Root &User:"
+msgstr "Admin-&Benutzer:"
+
+msgid "Successfully connected to database."
+msgstr "Verbindung zur Datenbank erfolgreich hergestellt."
+
+msgid "Successfully created database."
+msgstr "Datenbank erfolgreich erstellt."
+
+msgid "Test"
+msgstr "Test"
+
+msgid "Use user account of operating system"
+msgstr "Benutzernamen des Betriebssystems verwenden"

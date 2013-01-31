@@ -1,0 +1,5 @@
+REGEXRESOLVER
+1
+Das Örtliche (DE)
+http://mobil.dasoertliche.de/oe/go_rueckwaertssuche?number={Nr}
+(?:class="bluelink" title="){1,1}?(.*)?"{1,1}?
