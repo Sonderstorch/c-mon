@@ -1,0 +1,30 @@
+#, fuzzy
+msgid ""
+msgstr ""
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=UTF-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+
+msgid "Fax"
+msgstr "Fax"
+
+msgid "General"
+msgstr "Allgemein"
+
+msgid "Home"
+msgstr "Privat"
+
+msgid "Internal"
+msgstr "Intern"
+
+msgid "Mobile"
+msgstr "Mobil"
+
+msgid "Other"
+msgstr "Andere"
+
+msgid "Pager"
+msgstr "Piepser"
+
+msgid "Work"
+msgstr "Geschäftlich"

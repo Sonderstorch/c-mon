@@ -1,0 +1,783 @@
+
+# This file is part of c'mon, a lightweight telephony monitor.
+#
+# Copyright (C) 2012 Peter Schaefer-Hutter ("THE AUTHOR")
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http://www.gnu.org/licenses/>
+
+# ----------------------------------------------------------------------------
+# NOTE: This License does NOT permit incorporating this file (or parts or
+#       changed versions of it) into proprietary programs that are
+#       distributed to third-parties in binary form only.
+# ----------------------------------------------------------------------------
+
+# You can contact the original author by email at peter.schaefer@gmx.de
+# if you need different license-terms or other modifications to c'mon.
+
+# $Revision: 36 $ $Date: 2012-10-04 21:34:20 +0200 (Thu, 04 Oct 2012) $
+
+import os
+
+Import('env')
+
+env_local = env.Clone()
+
+if GetOption('compiler') == "mingw":
+    env_local['WINDOWS_INSERT_DEF'] = 1
+
+env_icu = env_local.Clone()
+env_icu_tools = env_local.Clone()
+env_proto = env_local.Clone()
+env_lpn = env_local.Clone()
+env_console = env_local.Clone()
+env_libpq = env_local.Clone()
+
+# --- ICU ( Part I - TOOLS ) --------------------------------------------------
+
+# ICU is a real PITA to compile since the build of the ICU data dll needs 
+# a few tools that need the other ICU data libraries to run (hen-and-egg). 
+# Gotcha. The solution is to first build a stub data dll. This can be done
+# with SCons' SharedLibrary as usual. 
+#
+# Then however, the tool 'icupkg' is needed first to extract data files 
+# from a archive in the distribution.
+#
+# These data files will then be fed into the 'pkgdata' executable that
+# generates an assembly file and calls the compiler/assembler to compile
+# it. Unfortunately, it's not really prepared to a mingw-w64 environment.
+# It reads its settings from a config file thats normally autoconf'ed and
+# assumes a cygwin environment therefore (it wants to call 'bash', for 
+# example). In short, it's a mess. The trickery below allows to compile it
+# with SCons, provided pkgdata.cpp has been slightly patched to avoid 
+# calling 'bash'. Nevertheless, the better alternative would be to just stop
+# it after generating the assembly file and make the rest with SCons. That
+# would also allow to insert manifest and version resource.
+
+icu_base = os.path.join( '#third_party', 'icu-49-1-2' )
+
+if GetOption('compiler') == "mingw":
+  env_icu_tools.Append(CPPDEFINES =  [ 'U_TOOLUTIL_IMPLEMENTATION' ] )
+  env_icu_tools.Append(CPPPATH = [ os.path.join(icu_base, 'source', 'common' ),
+                                   os.path.join(icu_base, 'source', 'i18n' ),
+                                   os.path.join(icu_base, 'source', 'tools', 'toolutil' ) ] )
+  env_icu_tools.Append(LIBPATH = [ '..' ] )
+  
+  env_icu_tools.Append(CPPFLAGS = [ '-mthreads', '-pipe', '-fmessage-length=0', '-Wl,-subsystem,console'] )
+  env_icu_tools.Append(CXXFLAGS = [ '-Wno-ctor-dtor-privacy' ] )
+  
+  toolutil_src = Glob('icu-49-1-2/source/tools/toolutil/*.c*')
+  toolutil_objs = env_icu_tools.Object( toolutil_src )
+
+  toolutil_lib = env_icu_tools.StaticLibrary(target = 'toolutil', 
+                                     source = [ toolutil_objs ] )
+
+  pkgdata_src  = Glob('icu-49-1-2/source/tools/pkgdata/*.c*')
+  pkgdata_objs = env_icu_tools.Object( pkgdata_src )
+  
+  pkgdata_exe = env_icu_tools.Program(target = 'pkgdata', 
+                                      source = [ pkgdata_objs ],
+                                      LIBS = [ toolutil_lib, 'icuuc49', 'icuin49' ] )
+
+  icupkg_src  = Glob('icu-49-1-2/source/tools/icupkg/*.c*')
+  icupkg_objs = env_icu_tools.Object( icupkg_src )
+  
+  icupkg_exe = env_icu_tools.Program(target = 'icupkg', 
+                                     source = [ icupkg_objs ],
+                                     LIBS = [ toolutil_lib, 'icuuc49', 'icuin49' ] )
+
+  #
+  # Make ICU temp dir 
+  #
+  icudata_tmp = env_icu_tools.Command('icu_tmp/tmp.tmp',
+                                      [],
+                                      [ Delete("${TARGET.dir}"),
+                                        Mkdir("${TARGET.dir}"),
+                                        Touch("$TARGET") ] )
+  #
+  # Build options file for mingw build of ICU (... what a mess ...)
+  #
+  icudata_conf = env_icu_tools.Command('icu_tmp/icu.config', [],
+  [  
+    'echo GENCCODE_ASSEMBLY_TYPE=-a gcc-cygwin>> $TARGET',
+    'echo SO=dll>> $TARGET',
+    'echo SOBJ=o>> $TARGET',
+    'echo A=a>> $TARGET',
+    'echo LIBPREFIX=>> $TARGET',
+    'echo LIB_EXT_ORDER=dll>> $TARGET',
+    'echo COMPILE=gcc -c -O2 -DWIN32 -D_WINDOWS -DNDEBUG>> $TARGET',
+    'echo LIBFLAGS=-Ithird_party/icu-49-1-2/source/common>> $TARGET',
+    'echo GENLIB=gcc -shared -Wl,--enable-auto-import -Wl,--out-implib=>> $TARGET',
+    'echo LDICUDTFLAGS=>> $TARGET',
+    'echo LD_SONAME=>> $TARGET',
+    'echo RPATH_FLAGS=>> $TARGET',
+    'echo BIR_LDFLAGS=>> $TARGET',
+    'echo AR=ar>> $TARGET',
+    'echo ARFLAGS=>> $TARGET',
+    'echo RANLIB=ar>> $TARGET',
+    'echo INSTALL_CMD=>> $TARGET'
+  ] )
+
+  #
+  # Build list for pkgdata from ICU data source archive
+  #
+  icudata_lst = env_icu_tools.Command('icu_tmp/icudata.lst',
+                         [ os.path.join(icu_base, 'source', 'data', 'in', 'icudt49l.dat' ), icudata_tmp ],
+                           "${TARGET.dir}\..\icupkg -x * -d ${TARGET.dir} --list $SOURCE > $TARGET" )
+  Depends(icudata_lst, icupkg_exe) 
+
+  #
+  # Use list to call pkgdata to build the real ICU data dll.
+  # We call it icudt49.dll (the stub-dll is called icudt49s.dll)
+  #
+  icudt = env_icu_tools.Command(
+    [ 'icu_tmp/icudt49.dll', 'icu_tmp/icudt49.lib', 'icu_tmp/icudt49.dat' ], 
+    [ 'icu_tmp/icudata.lst', icudata_conf ], 
+    "${TARGET.dir}\..\pkgdata -v -f -m dll -c -p icudt49 "
+    "-T ${SOURCE.dir.posix} -L icudt49 "
+    "-d ${TARGET.dir.posix} -O ${SOURCE.dir.posix}/icu.config -s ${SOURCE.dir.posix} "
+    "$SOURCE.posix" )
+  Depends(icudt, pkgdata_exe) 
+  env_icu.Alias("install", env.Install("..", icudt))
+
+# --- ICU ---------------------------------------------------------------------
+
+if GetOption('compiler') == "mingw":
+  env_icu['WINDOWS_INSERT_DEF'] = 1
+  env_icu.Append(CPPFLAGS = [ '-fvisibility=hidden' ] )
+ 
+icu_stubdata_src = Split("""
+                        icu-49-1-2/source/stubdata/stubdata.c
+                        """)
+
+env_icudt = env_icu.Clone()
+env_icudt.Append(CPPDEFINES =  [ 'STUBDATA_BUILD' ] )
+env_icudt.Append(CPPPATH = [ os.path.join(icu_base, 'source', 'common' ) ] )
+
+icu_stubdata_objs = env_icudt.SharedObject( icu_stubdata_src )
+icu_stubdata_res = env_icudt.RES('icu-49-1-2/source/data/misc/icudata.rc')
+icudts = env_icudt.SharedLibrary(target = 'icudt49', source = [ icu_stubdata_objs, icu_stubdata_res ] )
+# env_icu.Alias("install", env.Install("..", icudts ))
+
+icu_common_src = Split(""" 
+                  icu-49-1-2/source/common/ubidi.c
+                  icu-49-1-2/source/common/ubidi_props.c
+                  icu-49-1-2/source/common/ubidiln.c
+                  icu-49-1-2/source/common/ubidiwrt.c
+                  icu-49-1-2/source/common/ushape.cpp
+                  icu-49-1-2/source/common/brkeng.cpp
+                  icu-49-1-2/source/common/brkiter.cpp
+                  icu-49-1-2/source/common/dictbe.cpp
+                  icu-49-1-2/source/common/rbbi.cpp
+                  icu-49-1-2/source/common/rbbidata.cpp
+                  icu-49-1-2/source/common/rbbinode.cpp
+                  icu-49-1-2/source/common/rbbirb.cpp
+                  icu-49-1-2/source/common/rbbiscan.cpp
+                  icu-49-1-2/source/common/rbbisetb.cpp
+                  icu-49-1-2/source/common/rbbistbl.cpp
+                  icu-49-1-2/source/common/rbbitblb.cpp
+                  icu-49-1-2/source/common/triedict.cpp
+                  icu-49-1-2/source/common/ubrk.cpp
+                  icu-49-1-2/source/common/ucol_swp.cpp
+                  icu-49-1-2/source/common/propsvec.c
+                  icu-49-1-2/source/common/uarrsort.c
+                  icu-49-1-2/source/common/uenum.c
+                  icu-49-1-2/source/common/uhash.c
+                  icu-49-1-2/source/common/uhash_us.cpp
+                  icu-49-1-2/source/common/ulist.c
+                  icu-49-1-2/source/common/ustack.cpp
+                  icu-49-1-2/source/common/ustrenum.cpp
+                  icu-49-1-2/source/common/utrie.cpp
+                  icu-49-1-2/source/common/utrie2.cpp
+                  icu-49-1-2/source/common/utrie2_builder.cpp
+                  icu-49-1-2/source/common/uvector.cpp
+                  icu-49-1-2/source/common/uvectr32.cpp
+                  icu-49-1-2/source/common/uvectr64.cpp
+                  icu-49-1-2/source/common/errorcode.cpp
+                  icu-49-1-2/source/common/icudataver.c
+                  icu-49-1-2/source/common/locmap.c
+                  icu-49-1-2/source/common/mutex.cpp
+                  icu-49-1-2/source/common/putil.cpp
+                  icu-49-1-2/source/common/umath.c
+                  icu-49-1-2/source/common/umutex.c
+                  icu-49-1-2/source/common/utrace.c
+                  icu-49-1-2/source/common/utypes.c
+                  icu-49-1-2/source/common/wintz.c
+                  icu-49-1-2/source/common/ucnv.c
+                  icu-49-1-2/source/common/ucnv2022.cpp
+                  icu-49-1-2/source/common/ucnv_bld.cpp
+                  icu-49-1-2/source/common/ucnv_cb.c
+                  icu-49-1-2/source/common/ucnv_cnv.c
+                  icu-49-1-2/source/common/ucnv_ct.c
+                  icu-49-1-2/source/common/ucnv_err.c
+                  icu-49-1-2/source/common/ucnv_ext.cpp
+                  icu-49-1-2/source/common/ucnv_io.cpp
+                  icu-49-1-2/source/common/ucnv_lmb.c
+                  icu-49-1-2/source/common/ucnv_set.c
+                  icu-49-1-2/source/common/ucnv_u16.c
+                  icu-49-1-2/source/common/ucnv_u32.c
+                  icu-49-1-2/source/common/ucnv_u7.c
+                  icu-49-1-2/source/common/ucnv_u8.c
+                  icu-49-1-2/source/common/ucnvbocu.cpp
+                  icu-49-1-2/source/common/ucnvdisp.c
+                  icu-49-1-2/source/common/ucnvhz.c
+                  icu-49-1-2/source/common/ucnvisci.c
+                  icu-49-1-2/source/common/ucnvlat1.c
+                  icu-49-1-2/source/common/ucnvmbcs.c
+                  icu-49-1-2/source/common/ucnvscsu.c
+                  icu-49-1-2/source/common/ucnvsel.cpp
+                  icu-49-1-2/source/common/cmemory.c
+                  icu-49-1-2/source/common/ucln_cmn.c
+                  icu-49-1-2/source/common/ucmndata.c
+                  icu-49-1-2/source/common/udata.cpp
+                  icu-49-1-2/source/common/udatamem.c
+                  icu-49-1-2/source/common/udataswp.c
+                  icu-49-1-2/source/common/uinit.c
+                  icu-49-1-2/source/common/umapfile.c
+                  icu-49-1-2/source/common/uobject.cpp
+                  icu-49-1-2/source/common/dtintrv.cpp
+                  icu-49-1-2/source/common/parsepos.cpp
+                  icu-49-1-2/source/common/ustrfmt.c
+                  icu-49-1-2/source/common/util.cpp
+                  icu-49-1-2/source/common/util_props.cpp
+                  icu-49-1-2/source/common/punycode.cpp
+                  icu-49-1-2/source/common/uidna.cpp
+                  icu-49-1-2/source/common/uts46.cpp
+                  icu-49-1-2/source/common/locavailable.cpp
+                  icu-49-1-2/source/common/locbased.cpp
+                  icu-49-1-2/source/common/locdispnames.cpp
+                  icu-49-1-2/source/common/locid.cpp
+                  icu-49-1-2/source/common/loclikely.cpp
+                  icu-49-1-2/source/common/locresdata.cpp
+                  icu-49-1-2/source/common/locutil.cpp
+                  icu-49-1-2/source/common/resbund.cpp
+                  icu-49-1-2/source/common/resbund_cnv.cpp
+                  icu-49-1-2/source/common/ucat.c
+                  icu-49-1-2/source/common/uloc.cpp
+                  icu-49-1-2/source/common/uloc_tag.c
+                  icu-49-1-2/source/common/ures_cnv.c
+                  icu-49-1-2/source/common/uresbund.cpp
+                  icu-49-1-2/source/common/uresdata.c
+                  icu-49-1-2/source/common/caniter.cpp
+                  icu-49-1-2/source/common/filterednormalizer2.cpp
+                  icu-49-1-2/source/common/normalizer2.cpp
+                  icu-49-1-2/source/common/normalizer2impl.cpp
+                  icu-49-1-2/source/common/normlzr.cpp
+                  icu-49-1-2/source/common/unorm.cpp
+                  icu-49-1-2/source/common/unorm_it.c
+                  icu-49-1-2/source/common/unormcmp.cpp
+                  icu-49-1-2/source/common/bmpset.cpp
+                  icu-49-1-2/source/common/patternprops.cpp
+                  icu-49-1-2/source/common/propname.cpp
+                  icu-49-1-2/source/common/ruleiter.cpp
+                  icu-49-1-2/source/common/ucase.cpp
+                  icu-49-1-2/source/common/uchar.c
+                  icu-49-1-2/source/common/unames.cpp
+                  icu-49-1-2/source/common/unifilt.cpp
+                  icu-49-1-2/source/common/unifunct.cpp
+                  icu-49-1-2/source/common/uniset.cpp
+                  icu-49-1-2/source/common/uniset_closure.cpp
+                  icu-49-1-2/source/common/uniset_props.cpp
+                  icu-49-1-2/source/common/unisetspan.cpp
+                  icu-49-1-2/source/common/uprops.cpp
+                  icu-49-1-2/source/common/usc_impl.c
+                  icu-49-1-2/source/common/uscript.c
+                  icu-49-1-2/source/common/uset.cpp
+                  icu-49-1-2/source/common/uset_props.cpp
+                  icu-49-1-2/source/common/usetiter.cpp
+                  icu-49-1-2/source/common/icuplug.c
+                  icu-49-1-2/source/common/serv.cpp
+                  icu-49-1-2/source/common/servlk.cpp
+                  icu-49-1-2/source/common/servlkf.cpp
+                  icu-49-1-2/source/common/servls.cpp
+                  icu-49-1-2/source/common/servnotf.cpp
+                  icu-49-1-2/source/common/servrbf.cpp
+                  icu-49-1-2/source/common/servslkf.cpp
+                  icu-49-1-2/source/common/usprep.cpp
+                  icu-49-1-2/source/common/appendable.cpp
+                  icu-49-1-2/source/common/bytestream.cpp
+                  icu-49-1-2/source/common/bytestrie.cpp
+                  icu-49-1-2/source/common/bytestriebuilder.cpp
+                  icu-49-1-2/source/common/bytestrieiterator.cpp
+                  icu-49-1-2/source/common/chariter.cpp
+                  icu-49-1-2/source/common/charstr.cpp
+                  icu-49-1-2/source/common/cstring.c
+                  icu-49-1-2/source/common/cwchar.c
+                  icu-49-1-2/source/common/messagepattern.cpp
+                  icu-49-1-2/source/common/schriter.cpp
+                  icu-49-1-2/source/common/stringpiece.cpp
+                  icu-49-1-2/source/common/stringtriebuilder.cpp
+                  icu-49-1-2/source/common/ucasemap.cpp
+                  icu-49-1-2/source/common/ucasemap_titlecase_brkiter.cpp
+                  icu-49-1-2/source/common/ucharstrie.cpp
+                  icu-49-1-2/source/common/ucharstriebuilder.cpp
+                  icu-49-1-2/source/common/ucharstrieiterator.cpp
+                  icu-49-1-2/source/common/uchriter.cpp
+                  icu-49-1-2/source/common/uinvchar.c
+                  icu-49-1-2/source/common/uiter.cpp
+                  icu-49-1-2/source/common/unistr.cpp
+                  icu-49-1-2/source/common/unistr_case.cpp
+                  icu-49-1-2/source/common/unistr_case_locale.cpp
+                  icu-49-1-2/source/common/unistr_cnv.cpp
+                  icu-49-1-2/source/common/unistr_props.cpp
+                  icu-49-1-2/source/common/unistr_titlecase_brkiter.cpp
+                  icu-49-1-2/source/common/ustr_cnv.c
+                  icu-49-1-2/source/common/ustr_titlecase_brkiter.cpp
+                  icu-49-1-2/source/common/ustr_wcs.cpp
+                  icu-49-1-2/source/common/ustrcase.cpp
+                  icu-49-1-2/source/common/ustrcase_locale.cpp
+                  icu-49-1-2/source/common/ustring.cpp
+                  icu-49-1-2/source/common/ustrtrns.cpp
+                  icu-49-1-2/source/common/utext.cpp
+                  icu-49-1-2/source/common/utf_impl.c
+                  """)
+
+env_icu_common = env_icu.Clone()
+env_icu_common.Append(CPPDEFINES =  [ 'U_COMMON_IMPLEMENTATION' ] )
+env_icu_common.Append(CPPPATH = [ os.path.join(icu_base, 'source', 'common' ) ] )
+env_icu_common.Append(LIBPATH = [ '.' ] )
+
+icu_common_objs = env_icu_common.SharedObject( icu_common_src )
+icu_common_res = env_icu_common.RES('icu-49-1-2/source/common/common.rc')
+icuuc = env_icu_common.SharedLibrary(target = 'icuuc49', 
+                                     source = [ icu_common_objs, icu_common_res ],
+                                     LIBS = [ 'icudt49', 'advapi32' ] )
+env_icu.Alias("install", env.Install("..", icuuc ))
+
+icu_i18n_src = Split("""
+                      icu-49-1-2/source/i18n/alphaindex.cpp 
+                      icu-49-1-2/source/i18n/bms.cpp 
+                      icu-49-1-2/source/i18n/bmsearch.cpp 
+                      icu-49-1-2/source/i18n/bocsu.cpp 
+                      icu-49-1-2/source/i18n/coleitr.cpp 
+                      icu-49-1-2/source/i18n/coll.cpp 
+                      icu-49-1-2/source/i18n/colldata.cpp 
+                      icu-49-1-2/source/i18n/search.cpp 
+                      icu-49-1-2/source/i18n/sortkey.cpp 
+                      icu-49-1-2/source/i18n/stsearch.cpp 
+                      icu-49-1-2/source/i18n/tblcoll.cpp 
+                      icu-49-1-2/source/i18n/tzfmt.cpp 
+                      icu-49-1-2/source/i18n/tzgnames.cpp 
+                      icu-49-1-2/source/i18n/tznames.cpp 
+                      icu-49-1-2/source/i18n/tznames_impl.cpp 
+                      icu-49-1-2/source/i18n/ucol.cpp 
+                      icu-49-1-2/source/i18n/ucol_bld.cpp 
+                      icu-49-1-2/source/i18n/ucol_cnt.cpp 
+                      icu-49-1-2/source/i18n/ucol_elm.cpp 
+                      icu-49-1-2/source/i18n/ucol_res.cpp 
+                      icu-49-1-2/source/i18n/ucol_sit.cpp 
+                      icu-49-1-2/source/i18n/ucol_tok.cpp 
+                      icu-49-1-2/source/i18n/ucol_wgt.cpp 
+                      icu-49-1-2/source/i18n/ucoleitr.cpp 
+                      icu-49-1-2/source/i18n/usearch.cpp 
+                      icu-49-1-2/source/i18n/astro.cpp 
+                      icu-49-1-2/source/i18n/basictz.cpp 
+                      icu-49-1-2/source/i18n/buddhcal.cpp 
+                      icu-49-1-2/source/i18n/calendar.cpp 
+                      icu-49-1-2/source/i18n/cecal.cpp 
+                      icu-49-1-2/source/i18n/chnsecal.cpp 
+                      icu-49-1-2/source/i18n/choicfmt.cpp 
+                      icu-49-1-2/source/i18n/coptccal.cpp 
+                      icu-49-1-2/source/i18n/curramt.cpp 
+                      icu-49-1-2/source/i18n/currfmt.cpp 
+                      icu-49-1-2/source/i18n/currpinf.cpp 
+                      icu-49-1-2/source/i18n/currunit.cpp 
+                      icu-49-1-2/source/i18n/datefmt.cpp 
+                      icu-49-1-2/source/i18n/dcfmtsym.cpp 
+                      icu-49-1-2/source/i18n/decContext.c 
+                      icu-49-1-2/source/i18n/decfmtst.cpp 
+                      icu-49-1-2/source/i18n/decimfmt.cpp 
+                      icu-49-1-2/source/i18n/decNumber.c 
+                      icu-49-1-2/source/i18n/digitlst.cpp 
+                      icu-49-1-2/source/i18n/dtfmtsym.cpp 
+                      icu-49-1-2/source/i18n/dtitvfmt.cpp 
+                      icu-49-1-2/source/i18n/dtitvinf.cpp 
+                      icu-49-1-2/source/i18n/dtptngen.cpp 
+                      icu-49-1-2/source/i18n/dtrule.cpp 
+                      icu-49-1-2/source/i18n/ethpccal.cpp 
+                      icu-49-1-2/source/i18n/fmtable.cpp 
+                      icu-49-1-2/source/i18n/fmtable_cnv.cpp 
+                      icu-49-1-2/source/i18n/format.cpp 
+                      icu-49-1-2/source/i18n/fphdlimp.cpp 
+                      icu-49-1-2/source/i18n/fpositer.cpp 
+                      icu-49-1-2/source/i18n/gregocal.cpp 
+                      icu-49-1-2/source/i18n/gregoimp.cpp 
+                      icu-49-1-2/source/i18n/hebrwcal.cpp 
+                      icu-49-1-2/source/i18n/indiancal.cpp 
+                      icu-49-1-2/source/i18n/islamcal.cpp 
+                      icu-49-1-2/source/i18n/japancal.cpp 
+                      icu-49-1-2/source/i18n/locdspnm.cpp 
+                      icu-49-1-2/source/i18n/measfmt.cpp 
+                      icu-49-1-2/source/i18n/measure.cpp 
+                      icu-49-1-2/source/i18n/msgfmt.cpp 
+                      icu-49-1-2/source/i18n/nfrs.cpp 
+                      icu-49-1-2/source/i18n/nfrule.cpp 
+                      icu-49-1-2/source/i18n/nfsubs.cpp 
+                      icu-49-1-2/source/i18n/numfmt.cpp 
+                      icu-49-1-2/source/i18n/numsys.cpp 
+                      icu-49-1-2/source/i18n/olsontz.cpp 
+                      icu-49-1-2/source/i18n/persncal.cpp 
+                      icu-49-1-2/source/i18n/plurfmt.cpp 
+                      icu-49-1-2/source/i18n/plurrule.cpp 
+                      icu-49-1-2/source/i18n/rbnf.cpp 
+                      icu-49-1-2/source/i18n/rbtz.cpp 
+                      icu-49-1-2/source/i18n/reldtfmt.cpp 
+                      icu-49-1-2/source/i18n/selfmt.cpp 
+                      icu-49-1-2/source/i18n/simpletz.cpp 
+                      icu-49-1-2/source/i18n/smpdtfmt.cpp 
+                      icu-49-1-2/source/i18n/smpdtfst.cpp 
+                      icu-49-1-2/source/i18n/taiwncal.cpp 
+                      icu-49-1-2/source/i18n/timezone.cpp 
+                      icu-49-1-2/source/i18n/tmunit.cpp 
+                      icu-49-1-2/source/i18n/tmutamt.cpp 
+                      icu-49-1-2/source/i18n/tmutfmt.cpp 
+                      icu-49-1-2/source/i18n/tzrule.cpp 
+                      icu-49-1-2/source/i18n/tztrans.cpp 
+                      icu-49-1-2/source/i18n/ucal.cpp 
+                      icu-49-1-2/source/i18n/ucurr.cpp 
+                      icu-49-1-2/source/i18n/udat.cpp 
+                      icu-49-1-2/source/i18n/udateintervalformat.cpp 
+                      icu-49-1-2/source/i18n/udatpg.cpp 
+                      icu-49-1-2/source/i18n/ulocdata.c 
+                      icu-49-1-2/source/i18n/umsg.cpp 
+                      icu-49-1-2/source/i18n/unum.cpp 
+                      icu-49-1-2/source/i18n/upluralrules.cpp 
+                      icu-49-1-2/source/i18n/utmscale.c 
+                      icu-49-1-2/source/i18n/vtzone.cpp 
+                      icu-49-1-2/source/i18n/vzone.cpp 
+                      icu-49-1-2/source/i18n/windtfmt.cpp
+                      icu-49-1-2/source/i18n/winnmfmt.cpp
+                      icu-49-1-2/source/i18n/wintzimpl.cpp
+                      icu-49-1-2/source/i18n/zonemeta.cpp 
+                      icu-49-1-2/source/i18n/zrule.cpp 
+                      icu-49-1-2/source/i18n/ztrans.cpp 
+                      icu-49-1-2/source/i18n/ucln_in.c
+                      icu-49-1-2/source/i18n/regexcmp.cpp 
+                      icu-49-1-2/source/i18n/regeximp.cpp 
+                      icu-49-1-2/source/i18n/regexst.cpp 
+                      icu-49-1-2/source/i18n/regextxt.cpp 
+                      icu-49-1-2/source/i18n/rematch.cpp 
+                      icu-49-1-2/source/i18n/repattrn.cpp 
+                      icu-49-1-2/source/i18n/uregex.cpp 
+                      icu-49-1-2/source/i18n/uregexc.cpp 
+                      icu-49-1-2/source/i18n/anytrans.cpp 
+                      icu-49-1-2/source/i18n/brktrans.cpp 
+                      icu-49-1-2/source/i18n/casetrn.cpp 
+                      icu-49-1-2/source/i18n/cpdtrans.cpp 
+                      icu-49-1-2/source/i18n/esctrn.cpp 
+                      icu-49-1-2/source/i18n/funcrepl.cpp 
+                      icu-49-1-2/source/i18n/name2uni.cpp 
+                      icu-49-1-2/source/i18n/nortrans.cpp 
+                      icu-49-1-2/source/i18n/nultrans.cpp 
+                      icu-49-1-2/source/i18n/quant.cpp 
+                      icu-49-1-2/source/i18n/rbt.cpp 
+                      icu-49-1-2/source/i18n/rbt_data.cpp 
+                      icu-49-1-2/source/i18n/rbt_pars.cpp 
+                      icu-49-1-2/source/i18n/rbt_rule.cpp 
+                      icu-49-1-2/source/i18n/rbt_set.cpp 
+                      icu-49-1-2/source/i18n/remtrans.cpp 
+                      icu-49-1-2/source/i18n/strmatch.cpp 
+                      icu-49-1-2/source/i18n/strrepl.cpp 
+                      icu-49-1-2/source/i18n/titletrn.cpp 
+                      icu-49-1-2/source/i18n/tolowtrn.cpp 
+                      icu-49-1-2/source/i18n/toupptrn.cpp 
+                      icu-49-1-2/source/i18n/translit.cpp 
+                      icu-49-1-2/source/i18n/transreg.cpp 
+                      icu-49-1-2/source/i18n/tridpars.cpp 
+                      icu-49-1-2/source/i18n/unesctrn.cpp 
+                      icu-49-1-2/source/i18n/uni2name.cpp 
+                      icu-49-1-2/source/i18n/utrans.cpp 
+                      icu-49-1-2/source/i18n/csdetect.cpp 
+                      icu-49-1-2/source/i18n/csmatch.cpp 
+                      icu-49-1-2/source/i18n/csr2022.cpp 
+                      icu-49-1-2/source/i18n/csrecog.cpp 
+                      icu-49-1-2/source/i18n/csrmbcs.cpp 
+                      icu-49-1-2/source/i18n/csrsbcs.cpp 
+                      icu-49-1-2/source/i18n/csrucode.cpp 
+                      icu-49-1-2/source/i18n/csrutf8.cpp 
+                      icu-49-1-2/source/i18n/inputext.cpp 
+                      icu-49-1-2/source/i18n/ucsdet.cpp 
+                      icu-49-1-2/source/i18n/uspoof.cpp 
+                      icu-49-1-2/source/i18n/uspoof_build.cpp 
+                      icu-49-1-2/source/i18n/uspoof_conf.cpp 
+                      icu-49-1-2/source/i18n/uspoof_impl.cpp 
+                      icu-49-1-2/source/i18n/uspoof_wsconf.cpp 
+                      """)
+
+env_icu_i18n = env_icu.Clone()
+env_icu_i18n.Append(CPPDEFINES =  [ 'U_I18N_IMPLEMENTATION' ] )
+env_icu_i18n.Append(CPPPATH = [ os.path.join(icu_base, 'source', 'common' ) ] )
+env_icu_i18n.Append(CPPPATH = [ os.path.join(icu_base, 'source', 'i18n' ) ] )
+env_icu_i18n.Append(LIBPATH = [ '..' ] )
+
+icu_i18n_objs = env_icu_i18n.SharedObject( icu_i18n_src )
+icu_i18n_res = env_icu_i18n.RES('icu-49-1-2/source/i18n/i18n.rc')
+
+icuin = env_icu_i18n.SharedLibrary(target = 'icuin49', source = [ icu_i18n_objs, icu_i18n_res ],
+                                    LIBS = [ 'icuuc49' ] )
+env_icu.Alias("install", env.Install("..", icuin ))
+
+# --- Protocol Buffers -----------------------------------------------------
+
+proto_base = os.path.join( '#third_party', 'protobuf-2.4.1' )
+
+env_proto.Append(CPPDEFINES =  [  ] )
+
+env_proto.Append(CPPPATH = [ os.path.join( proto_base, 'mingw' ),
+                             os.path.join( proto_base, 'src' ) ] )
+
+proto_src  = Split("""
+              protobuf-2.4.1/src/google/protobuf/descriptor.cc
+              protobuf-2.4.1/src/google/protobuf/descriptor.pb.cc
+              protobuf-2.4.1/src/google/protobuf/descriptor_database.cc
+              protobuf-2.4.1/src/google/protobuf/dynamic_message.cc
+              protobuf-2.4.1/src/google/protobuf/extension_set.cc
+              protobuf-2.4.1/src/google/protobuf/extension_set_heavy.cc
+              protobuf-2.4.1/src/google/protobuf/generated_message_reflection.cc
+              protobuf-2.4.1/src/google/protobuf/generated_message_util.cc
+              protobuf-2.4.1/src/google/protobuf/message.cc
+              protobuf-2.4.1/src/google/protobuf/message_lite.cc
+              protobuf-2.4.1/src/google/protobuf/reflection_ops.cc
+              protobuf-2.4.1/src/google/protobuf/repeated_field.cc
+              protobuf-2.4.1/src/google/protobuf/service.cc
+              protobuf-2.4.1/src/google/protobuf/text_format.cc
+              protobuf-2.4.1/src/google/protobuf/unknown_field_set.cc
+              protobuf-2.4.1/src/google/protobuf/wire_format.cc
+              protobuf-2.4.1/src/google/protobuf/wire_format_lite.cc
+              protobuf-2.4.1/src/google/protobuf/io/coded_stream.cc
+              protobuf-2.4.1/src/google/protobuf/io/gzip_stream.cc
+              protobuf-2.4.1/src/google/protobuf/io/printer.cc
+              protobuf-2.4.1/src/google/protobuf/io/tokenizer.cc
+              protobuf-2.4.1/src/google/protobuf/io/zero_copy_stream.cc
+              protobuf-2.4.1/src/google/protobuf/io/zero_copy_stream_impl.cc
+              protobuf-2.4.1/src/google/protobuf/io/zero_copy_stream_impl_lite.cc
+              protobuf-2.4.1/src/google/protobuf/stubs/common.cc
+              protobuf-2.4.1/src/google/protobuf/stubs/once.cc
+              protobuf-2.4.1/src/google/protobuf/stubs/structurally_valid.cc
+              protobuf-2.4.1/src/google/protobuf/stubs/strutil.cc
+              protobuf-2.4.1/src/google/protobuf/stubs/substitute.cc
+             """)
+
+proto_objs = env_proto.Object( proto_src )
+
+libproto = env_proto.Library(target = 'protobuf', source = proto_objs )
+
+env_proto.Alias("install", env.Install("..", [ libproto ] ) )
+
+# --- libPhoneNumber ( Part I - TOOLS ) ------------------------------------
+
+lpn_base = os.path.join( '#third_party', 'libphonenumber' )
+
+if GetOption('compiler') == "mingw":
+  env_console.Append(CPPDEFINES =  [ 'USE_ICU_REGEXP' ] )
+  env_console.Append(CPPPATH = [  env_local['ENV']['BOOST'],
+                                  os.path.join( lpn_base, 'tools', 'cpp', 'src' ) ] )
+  env_console.Append(LIBPATH = [ os.path.join(env_local['ENV']['BOOST'], 'stage', 'lib') ] )
+  
+  env_console.Append(CPPFLAGS = [ '-mthreads', '-pipe', '-fmessage-length=0', '-Wl,-subsystem,console'] )
+  env_console.Append(CXXFLAGS = [ '-Wno-ctor-dtor-privacy' ] )
+  
+  geocodingdata_src = Glob('libphonenumber/tools/cpp/src/cpp-build/*.c*')
+  geocodingdata_objs = env_console.Object( geocodingdata_src )
+  
+  if GetOption('build_kind') == "debug":
+    geocoding_boost_libs = [ 'libboost_system-mgw47-mt-d-1_51',
+                             'libboost_filesystem-mgw47-mt-d-1_51' ]
+  elif GetOption('build_kind') == "release":
+    geocoding_boost_libs = [ 'libboost_system-mgw47-mt-1_51',
+                             'libboost_filesystem-mgw47-mt-1_51' ]
+  
+  geocodingdata_gen = env_console.Program(target = 'generate_geocoding_data', 
+                                         source = [ geocodingdata_objs ],
+                                         LIBS = geocoding_boost_libs )
+
+# --- libPhoneNumber -------------------------------------------------------
+
+env_lpn.Append(CPPDEFINES =  [ 'USE_ICU_REGEXP' ] )
+
+env_lpn.Append(CPPPATH = [  env_local['ENV']['BOOST'],
+                            os.path.join( lpn_base, 'cpp', 'src' ),
+                            os.path.join( proto_base, 'src' ),
+                            os.path.join( icu_base, 'source', 'common' ),
+                            os.path.join( icu_base, 'source', 'i18n' )
+                         ] )
+
+env_lpn.Append(LIBPATH = [ os.path.join(env_local['ENV']['BOOST'], 'stage', 'lib'),
+                           '..' ] )
+
+env_lpn.Command( [ os.path.join( lpn_base, 'cpp', 'src', 'phonenumbers', 'phonemetadata.pb.cc' ),
+                   os.path.join( lpn_base, 'cpp', 'src', 'phonenumbers', 'phonemetadata.pb.h' ) ],
+                   os.path.join( lpn_base, 'resources', 'phonemetadata.proto' ),
+                   "tools\\protoc --cpp_out=${TARGET.dir} --proto_path=${SOURCE.dir} $SOURCE" )
+
+env_lpn.Command( [ os.path.join( lpn_base, 'cpp', 'src', 'phonenumbers', 'phonenumber.pb.cc' ),
+                   os.path.join( lpn_base, 'cpp', 'src', 'phonenumbers', 'phonenumber.pb.h' ) ],
+                   os.path.join( lpn_base, 'resources', 'phonenumber.proto' ),
+                   "tools\\protoc --cpp_out=${TARGET.dir} --proto_path=${SOURCE.dir} $SOURCE" )
+ 
+lpn_src  = Glob('libphonenumber/cpp/src/base/*.c*')
+lpn_src += Split("""
+                  libphonenumber/cpp/src/phonenumbers/alternate_format.cc
+                  libphonenumber/cpp/src/phonenumbers/asyoutypeformatter.cc
+                  libphonenumber/cpp/src/phonenumbers/default_logger.cc
+                  libphonenumber/cpp/src/phonenumbers/logger.cc
+                  libphonenumber/cpp/src/phonenumbers/metadata.cc
+                  libphonenumber/cpp/src/phonenumbers/phonemetadata.pb.cc
+                  libphonenumber/cpp/src/phonenumbers/phonenumber.cc
+                  libphonenumber/cpp/src/phonenumbers/phonenumber.pb.cc
+                  libphonenumber/cpp/src/phonenumbers/phonenumbermatch.cc
+                  libphonenumber/cpp/src/phonenumbers/phonenumbermatcher.cc
+                  libphonenumber/cpp/src/phonenumbers/phonenumberutil.cc
+                  libphonenumber/cpp/src/phonenumbers/regexp_adapter_icu.cc
+                  libphonenumber/cpp/src/phonenumbers/regexp_cache.cc
+                  libphonenumber/cpp/src/phonenumbers/shortnumberutil.cc
+                  libphonenumber/cpp/src/phonenumbers/stringutil.cc
+                  libphonenumber/cpp/src/phonenumbers/string_byte_sink.cc
+                  libphonenumber/cpp/src/phonenumbers/unicodestring.cc
+                  libphonenumber/cpp/src/phonenumbers/geocoding/area_code_map.cc
+                  libphonenumber/cpp/src/phonenumbers/geocoding/default_map_storage.cc
+                  libphonenumber/cpp/src/phonenumbers/geocoding/mapping_file_provider.cc
+                  libphonenumber/cpp/src/phonenumbers/geocoding/phonenumber_offline_geocoder.cc
+                  libphonenumber/cpp/src/phonenumbers/geocoding/geocoding_data.cc
+                """)
+lpn_src += Glob('libphonenumber/cpp/src/phonenumbers/utf/*.c*')
+
+lpn_objs = env_lpn.Object( lpn_src )
+
+#lpn_boost_libs = [  ]
+#if GetOption('compiler') == "mingw":
+#  if GetOption('build_kind') == "debug":
+#    lpn_boost_libs = [ 'libboost_system-mgw47-mt-d-1_51' ]
+#  elif GetOption('build_kind') == "release":
+#    lpn_boost_libs = [ 'libboost_system-mgw47-mt-1_51' ]
+
+libphonenumber = env_lpn.StaticLibrary(target = 'phonenumber', 
+                                       source = [ lpn_objs ] )
+
+#libphonenumber = env_lpn.SharedLibrary(target = 'phonenumber', 
+#                                       source = [ lpn_objs ],
+#                                       LIBS = [ 'protobuf', 'icuuc49', 'icuin49' ] + lpn_boost_libs)
+
+env_lpn.Alias("install", env.Install("..", [ libphonenumber ] ) )
+
+if GetOption('compiler') == "mingw":
+  Depends(libphonenumber, geocodingdata_gen) 
+
+# --- libpq -------------------------------------------------------------------
+
+env_libpq.Append(CPPDEFINES =  [ 'ENABLE_THREAD_SAFETY', 'FRONTEND' ] )
+
+if GetOption('compiler') == "mingw":
+  env_libpq.Append(CPPPATH = [ 'libpq/include', 'libpq/include/port/win32', 
+                               'libpq/port', 'libpq/backend' ] )
+elif GetOption('compiler') == "vc":
+  env_libpq.Append(CPPPATH = [ 'libpq/include', 'libpq/include/port/win32', 
+                               'libpq/include/port/win32_msvc', 
+                               'libpq/port', 'libpq/backend' ] )
+
+env_libpq.Command("libpq/include/pg_config.h", 
+                  "libpq/include/pg_config.h.win32", 
+                  Copy("$TARGET", "$SOURCE"))
+
+env_libpq.Command("libpq/include/pg_config_os.h", 
+                  "libpq/include/port/win32.h", 
+                  Copy("$TARGET", "$SOURCE"))
+
+libpq_src  = Split("""
+              libpq/interfaces/libpq/win32.c
+              libpq/port/getaddrinfo.c
+              libpq/port/pgstrcasecmp.c
+              libpq/port/thread.c
+              libpq/port/inet_aton.c
+              libpq/port/crypt.c
+              libpq/port/noblock.c
+              libpq/port/chklocale.c
+              libpq/port/inet_net_ntop.c
+              libpq/backend/libpq/md5.c
+              libpq/backend/libpq/ip.c
+              libpq/backend/utils/mb/wchar.c
+              libpq/backend/utils/mb/encnames.c
+              libpq/port/snprintf.c
+              libpq/port/strlcpy.c
+              libpq/port/pgsleep.c
+              libpq/port/dirmod.c
+              libpq/port/open.c
+              libpq/port/win32error.c
+              libpq/port/win32setlocale.c
+              libpq/interfaces/libpq/fe-auth.c
+              libpq/interfaces/libpq/fe-protocol2.c
+              libpq/interfaces/libpq/fe-protocol3.c
+              libpq/interfaces/libpq/fe-connect.c
+              libpq/interfaces/libpq/fe-exec.c
+              libpq/interfaces/libpq/fe-lobj.c
+              libpq/interfaces/libpq/fe-misc.c
+              libpq/interfaces/libpq/fe-print.c
+              libpq/interfaces/libpq/fe-secure.c
+              libpq/interfaces/libpq/libpq-events.c
+              libpq/interfaces/libpq/pqexpbuffer.c
+              libpq/interfaces/libpq/pqsignal.c
+              libpq/interfaces/libpq/pthread-win32.c
+            """)
+
+if GetOption('compiler') == "vc":
+  libpq_src += [ 'libpq/port/dirent.c' ]
+
+libpq_objs = env_libpq.Object( libpq_src )
+
+libpq = env_libpq.StaticLibrary(target = 'libpq', 
+                                source = [ libpq_objs ] )
+
+env_libpq.Alias("install", env.Install("..", [ libpq ] ) )
+
+# --- SOCI and SQLite ---------------------------------------------------------
+
+env_local.Append(LIBPATH = [ os.path.join(env_local['ENV']['BOOST'], 'stage', 'lib' ),
+                             '.', '..' ] ) 
+
+env_local.Append(CPPPATH = [ os.path.join( env_local['ENV']['BOOST'], 'include'),
+                             'libpq/interfaces/libpq', 'libpq/include',
+                             'soci/core', 'sqlite3',
+                              os.path.join( icu_base, 'source', 'common' ),
+                              os.path.join( icu_base, 'source', 'i18n' ) ] )
+
+env_local.Append(CPPDEFINES =  [ 'SOCI_DLL', 'SQLITE_ENABLE_ICU',
+                               [ 'SOCI_LIB_PREFIX', '\\"soci_\\"' ],
+                               [ 'SOCI_LIB_SUFFIX', '\\".dll\\"' ],
+                               [ 'HAVE_BOOST', '1' ],
+                               [ 'HAVE_BOOST_DATE_TIME', '1' ] ])
+
+core_sources = Glob('soci/core/*.cpp')
+core_objs = env_local.SharedObject( core_sources )
+
+postgresql_sources = Glob('soci/backends/postgresql/*.cpp')
+postgresql_objs = env_local.SharedObject( postgresql_sources )
+
+sqlite_sources = Glob('soci/backends/sqlite3/*.cpp')
+sqlite_objs = env_local.SharedObject( sqlite_sources )
+
+sqlite_engine_sources = "sqlite3/sqlite3.c"
+sqlite_engine_objs = env_local.Object( sqlite_engine_sources )
+
+lib1 = env_local.SharedLibrary(target = 'soci_core', 
+                    source = core_objs,
+                    LIBS = [ 'kernel32', 'user32' ] )
+
+lib2 = env_local.SharedLibrary(target = 'soci_postgresql', 
+                    source = postgresql_objs,
+                    LIBS = [ 'kernel32', 'user32', 'soci_core', libpq, 'ws2_32', 'secur32', 'shell32', 'advapi32'  ] )
+
+lib3 = env_local.SharedLibrary(target = 'soci_sqlite', 
+                    source = sqlite_objs + sqlite_engine_objs,
+                    LIBS = [ 'kernel32', 'user32', 'soci_core', 'icuuc49', 'icuin49' ] )
+
+env.Alias("install", env.Install("..", [ lib1, lib2, lib3 ] ) )

@@ -1,0 +1,112 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build" ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup Label="ProjectConfigurations">
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="gui\aboutpage.cpp" />
+    <ClCompile Include="gui\contactdlg.cpp" />
+    <ClCompile Include="gui\contactspage.cpp" />
+    <ClCompile Include="gui\csvimp.cpp" />
+    <ClCompile Include="gui\csvimportdlg.cpp" />
+    <ClCompile Include="gui\csv\csvfile.cpp" />
+    <ClCompile Include="gui\db\backend.cpp" />
+    <ClCompile Include="gui\dialdlg.cpp" />
+    <ClCompile Include="gui\journalpage.cpp" />
+    <ClCompile Include="gui\journal\journalentry.cpp" />
+    <ClCompile Include="gui\journal\journalfilter.cpp" />
+    <ClCompile Include="gui\journal\journalmodel.cpp" />
+    <ClCompile Include="gui\logpage.cpp" />
+    <ClCompile Include="gui\log\filelog.cpp" />
+    <ClCompile Include="gui\mainapp.cpp" />
+    <ClCompile Include="gui\mainframe.cpp" />
+    <ClCompile Include="gui\notification.cpp" />
+    <ClCompile Include="gui\picturecontrol.cpp" />
+    <ClCompile Include="gui\pluginloader.cpp" />
+    <ClCompile Include="gui\prefpage.cpp" />
+    <ClCompile Include="gui\resolverpage.cpp" />
+    <ClCompile Include="gui\resolver\address.cpp" />
+    <ClCompile Include="gui\resolver\resolver.cpp" />
+    <ClCompile Include="gui\resolver\resolvermodel.cpp" />
+    <ClCompile Include="gui\resolver\rexweb.cpp" />
+    <ClCompile Include="gui\resources.cpp" />
+    <ClCompile Include="gui\settingspage.cpp" />
+    <ClCompile Include="gui\stdwx.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="gui\aboutpage.h" />
+    <ClInclude Include="gui\contactdlg.h" />
+    <ClInclude Include="gui\contactspage.h" />
+    <ClInclude Include="gui\csvimp.h" />
+    <ClInclude Include="gui\csvimportdlg.h" />
+    <ClInclude Include="gui\csv\csvfile.h" />
+    <ClInclude Include="gui\db\backend.h" />
+    <ClInclude Include="gui\dialdlg.h" />
+    <ClInclude Include="gui\journalpage.h" />
+    <ClInclude Include="gui\journal\journalentry.h" />
+    <ClInclude Include="gui\journal\journalfilter.h" />
+    <ClInclude Include="gui\journal\journalmodel.h" />
+    <ClInclude Include="gui\logpage.h" />
+    <ClInclude Include="gui\log\filelog.h" />
+    <ClInclude Include="gui\mainapp.h" />
+    <ClInclude Include="gui\mainframe.h" />
+    <ClInclude Include="gui\notification.h" />
+    <ClInclude Include="gui\picturecontrol.h" />
+    <ClInclude Include="gui\pluginloader.h" />
+    <ClInclude Include="gui\prefpage.h" />
+    <ClInclude Include="gui\resolverpage.h" />
+    <ClInclude Include="gui\resolver\address.h" />
+    <ClInclude Include="gui\resolver\resolver.h" />
+    <ClInclude Include="gui\resolver\resolvermodel.h" />
+    <ClInclude Include="gui\resolver\rexweb.h" />
+    <ClInclude Include="gui\resources.h" />
+    <ClInclude Include="gui\settingspage.h" />
+    <ClInclude Include="gui\stdwx.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <ResourceCompile Include="gui\version.rc" />
+  </ItemGroup>
+  <PropertyGroup Label="Globals">
+    <ProjectGuid>{FF20A59C-2709-42A7-8B98-229D8307CB6B}</ProjectGuid>
+    <Keyword>MakeFileProj</Keyword>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>true</UseDebugLibraries>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
+    <ConfigurationType>Makefile</ConfigurationType>
+    <UseDebugLibraries>false</UseDebugLibraries>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ImportGroup Label="ExtensionSettings">
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <ImportGroup Label="PropertySheets" Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <Import Project="$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props" Condition="exists('$(UserRootDir)\Microsoft.Cpp.$(Platform).user.props')" Label="LocalAppDataPlatform" />
+  </ImportGroup>
+  <PropertyGroup Label="UserMacros" />
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
+    <NMakeOutput>cmon.exe</NMakeOutput>
+    <NMakePreprocessorDefinitions>WIN32;_DEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
+    <NMakeOutput>cmon.exe</NMakeOutput>
+    <NMakePreprocessorDefinitions>WIN32;NDEBUG;$(NMakePreprocessorDefinitions)</NMakePreprocessorDefinitions>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+  </ItemDefinitionGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
+  <ImportGroup Label="ExtensionTargets">
+  </ImportGroup>
+</Project>

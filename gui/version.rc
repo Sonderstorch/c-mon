@@ -1,0 +1,86 @@
+
+// This file is part of c'mon, a lightweight telephony monitor.
+//
+// Copyright (C) 2012 Peter Schaefer-Hutter ("THE AUTHOR")
+//
+// This program is free software: you can redistribute it and/or modify
+// it under the terms of the GNU General Public License as published by
+// the Free Software Foundation, either version 3 of the License, or
+// (at your option) any later version.
+//
+// This program is distributed in the hope that it will be useful,
+// but WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+// GNU General Public License for more details.
+//
+// You should have received a copy of the GNU General Public License
+// along with this program.  If not, see <http://www.gnu.org/licenses/>
+
+// ----------------------------------------------------------------------------
+// NOTE: This License does NOT permit incorporating this file (or parts or
+//       changed versions of it) into proprietary programs that are
+//       distributed to third-parties in binary form only.
+// ----------------------------------------------------------------------------
+
+// You can contact the original author by email at peter.schaefer@gmx.de
+// if you need different license-terms or other modifications to c'mon.
+
+// Revision: $Revision: 42 $ $Date: 2012-10-23 23:15:58 +0200 (Tue, 23 Oct 2012) $
+
+#define wxUSE_NO_MANIFEST 1
+
+#include "wx/msw/wx.rc"
+
+1 RT_MANIFEST  main.manifest
+
+AAPHONERED ICON "res/phone_red.ico"
+
+#ifdef _DEBUG
+    #define FILE_FLAGS 0x1L
+#else
+    #define FILE_FLAGS 0x0L
+#endif
+
+#define fMAJOR       1
+#define fMINOR       1
+#define fRELEASE     0
+#define fSUBRELEASE  0
+#define fVER_STRING  "1.1.0"
+
+#define LANG 0x0409
+#ifdef _UNICODE
+    #define CHARSET 0x4b0
+    #define LANG_WITH_CHARSET "040904b0"
+#else
+    #define CHARSET 0
+    #define LANG_WITH_CHARSET "04090000"
+#endif
+
+1 VERSIONINFO
+ FILEVERSION      fMAJOR,fMINOR,fRELEASE,fSUBRELEASE
+ PRODUCTVERSION   fMAJOR,fMINOR,fRELEASE,fSUBRELEASE
+ FILEFLAGSMASK    0x3fL
+ FILEFLAGS        FILE_FLAGS
+ FILEOS           0x40004L  // VOS_NT_WINDOWS32
+ FILETYPE         1         // VFT_APP
+ FILESUBTYPE      0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK LANG_WITH_CHARSET
+        BEGIN
+            VALUE "CompanyName",      "sheepleap software\0"
+            VALUE "FileDescription",  "c'mon telephony monitor GUI\0"
+            VALUE "FileVersion",      fVER_STRING "\0"
+            VALUE "InternalName",     "c'mon\0"
+            VALUE "LegalCopyright",   "Copyright 2012 sheepleap software\0"
+            VALUE "OriginalFilename", "cmon.exe\0"
+            VALUE "ProductName",      "c'mon telephony monitor\0"
+            VALUE "ProductVersion",   fVER_STRING "\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+            VALUE "Translation", LANG, CHARSET
+    END
+END

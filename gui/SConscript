@@ -1,0 +1,91 @@
+
+# This file is part of c'mon, a lightweight telephony monitor.
+#
+# Copyright (C) 2012 Peter Schaefer-Hutter ("THE AUTHOR")
+#
+# This program is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program.  If not, see <http:www.gnu.org/licenses/>
+
+# ----------------------------------------------------------------------------
+# NOTE: This License does NOT permit incorporating this file (or parts or
+#       changed versions of it) into proprietary programs that are
+#       distributed to third-parties in binary form only.
+# ----------------------------------------------------------------------------
+
+# You can contact the original author by email at peter.schaefer@gmx.de
+# if you need different license-terms or other modifications to c'mon.
+
+# $Revision: 22 $ $Date: 2012-09-24 21:45:08 +0200 (Mon, 24 Sep 2012) $
+
+import os
+
+Import('env')
+Import('WXLIBS')
+
+env_local = env.Clone()
+
+sources  = Glob('*.cpp')
+sources += Glob('journal/*.cpp')
+sources += Glob('resolver/*.cpp')
+sources += Glob('db/*.cpp')
+sources += Glob('log/*.cpp')
+
+bitmaps  = Glob('res/bmp/*.png')
+
+bitmap_hdr = env_local.Command('bitmaps.h',
+                               bitmaps,
+                               "cd ${SOURCE.dir} && ..\..\..\\tools\wxInclude.exe --const -t -w ${SOURCES.name} -o ..\..\..\\${TARGET}" )
+
+icons    = Glob('res/*.ico')
+
+if GetOption('compiler') == "mingw":
+  env_local['Gch'] = env_local.Gch('#gui/stdwx.h')[0]
+elif GetOption('compiler') == 'vc':
+  env_local['PCH'] = env_local.PCH('stdwx.cpp')[0]
+  env_local['PCHSTOP'] = 'stdwx.h'
+
+objs = env_local.Object( sources )
+
+res = env_local.RES('version.rc')
+
+env_local.Prepend(CPPPATH=['.'])
+
+env_local.Append(CPPPATH = [ os.path.join( '#third_party', 'icu-49-1-2', 'source', 'common' ),
+                             os.path.join( '#third_party', 'icu-49-1-2', 'source', 'i18n' ) ])
+
+# print env_local.Dump()
+
+# GUI Executable
+#
+target = env_local.Program(target = 'cmon', 
+            source = [ objs, res ],
+            LIBS = WXLIBS + [ 
+                    'comctl32', 
+                    'uuid', 
+                    'rpcrt4',
+                    'kernel32',
+                    'user32',
+                    'gdi32',
+                    'winspool',
+                    'comdlg32',
+                    'advapi32',
+                    'shell32',
+                    'soci_sqlite',
+                    'soci_core',
+                    'hzshared'
+                    ]
+          )
+
+Depends(target, icons)
+
+env_local.Alias("install", env_local.Install("..", target))
