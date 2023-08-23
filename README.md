@@ -1,5 +1,9 @@
 # c'mon
 
+Note 2023-08-23: Project has been archived since I stopped using old-style telephony a long time ago and can't maintain the code anymore.
+
+***
+
 Note 2016-06-16: Project has been moved from https://sourceforge.net/projects/cmon/
 
 ***
